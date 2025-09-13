@@ -322,6 +322,34 @@ p {
   font-size: 0.875rem;
 }
 
+/* Note actions container */
+.note-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Edit button */
+.edit-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.edit-button:hover {
+  background: #2563eb;
+}
+
 /* Delete button */
 .delete-button {
   background: #ef4444;
@@ -341,6 +369,32 @@ p {
 
 .delete-button:hover {
   background: #dc2626;
+}
+
+/* Edit form styles */
+.edit-form {
+  width: 100%;
+}
+
+.edit-form .form-group {
+  margin-bottom: 0.75rem;
+}
+
+.edit-form .input,
+.edit-form .textarea {
+  margin-bottom: 0;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.edit-actions .button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }
 
 /* Responsive design */
@@ -365,7 +419,15 @@ p {
     margin-bottom: 0.5rem;
   }
   
-  .delete-button {
+  .note-actions {
     align-self: flex-end;
+  }
+  
+  .edit-actions {
+    flex-direction: column;
+  }
+  
+  .edit-actions .button {
+    width: 100%;
   }
 }

@@ -18,6 +18,12 @@ export default function Profile() {
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit state
+  const [editingNote, setEditingNote] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [updating, setUpdating] = useState(false);
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -108,6 +114,60 @@ export default function Profile() {
     } catch (err) {
       setError("An unexpected error occurred while deleting note");
       console.error("Delete note error:", err);
+    }
+  };
+
+  const handleEditNote = (note) => {
+    setEditingNote(note.id);
+    setEditTitle(note.title);
+    setEditContent(note.content);
+    setError(""); // Clear any existing errors
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNote(null);
+    setEditTitle("");
+    setEditContent("");
+    setError("");
+  };
+
+  const handleUpdateNote = async (noteId) => {
+    if (!editTitle.trim() || !editContent.trim()) {
+      setError("Please fill in both title and content");
+      return;
+    }
+
+    setUpdating(true);
+    setError("");
+
+    try {
+      const updates = {
+        title: editTitle.trim(),
+        content: editContent.trim(),
+      };
+
+      const { data, error } = await notesService.updateNote(noteId, updates);
+
+      if (error) {
+        setError("Failed to update note: " + error.message);
+      } else {
+        // Update the note in the list
+        setNotes(
+          notes.map((note) =>
+            note.id === noteId
+              ? { ...note, ...updates, updated_at: new Date().toISOString() }
+              : note
+          )
+        );
+
+        // Exit edit mode
+        handleCancelEdit();
+      }
+    } catch (err) {
+      setError("An unexpected error occurred while updating note");
+      console.error("Update note error:", err);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -220,22 +280,87 @@ export default function Profile() {
             <div className="notes-grid">
               {notes.map((note) => (
                 <div key={note.id} className="note-card">
-                  <div className="note-header">
-                    <h3>{note.title}</h3>
-                    <button
-                      onClick={() => handleDeleteNote(note.id)}
-                      className="delete-button"
-                      title="Delete note"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p className="note-content">{note.content}</p>
-                  <div className="note-footer">
-                    <small>
-                      Created: {new Date(note.created_at).toLocaleDateString()}
-                    </small>
-                  </div>
+                  {editingNote === note.id ? (
+                    // Edit mode
+                    <div className="edit-form">
+                      <div className="form-group">
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="input"
+                          placeholder="Note title"
+                          disabled={updating}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="textarea"
+                          placeholder="Note content"
+                          disabled={updating}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="edit-actions">
+                        <button
+                          onClick={() => handleUpdateNote(note.id)}
+                          className="button"
+                          disabled={
+                            updating || !editTitle.trim() || !editContent.trim()
+                          }
+                        >
+                          {updating ? "Saving..." : "Save"}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="button button-secondary"
+                          disabled={updating}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // View mode
+                    <>
+                      <div className="note-header">
+                        <h3>{note.title}</h3>
+                        <div className="note-actions">
+                          <button
+                            onClick={() => handleEditNote(note)}
+                            className="edit-button"
+                            title="Edit note"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="delete-button"
+                            title="Delete note"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                      <p className="note-content">{note.content}</p>
+                      <div className="note-footer">
+                        <small>
+                          Created:{" "}
+                          {new Date(note.created_at).toLocaleDateString()}
+                          {note.updated_at &&
+                            note.updated_at !== note.created_at && (
+                              <span>
+                                {" "}
+                                • Updated:{" "}
+                                {new Date(note.updated_at).toLocaleDateString()}
+                              </span>
+                            )}
+                        </small>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
