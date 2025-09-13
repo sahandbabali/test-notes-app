@@ -16,13 +16,19 @@ export default function Profile() {
   // Form state
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [tags, setTags] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Edit state
   const [editingNote, setEditingNote] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editTags, setEditTags] = useState("");
   const [updating, setUpdating] = useState(false);
+
+  // Filter state
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [allUserTags, setAllUserTags] = useState([]);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -35,6 +41,7 @@ export default function Profile() {
   useEffect(() => {
     if (user) {
       loadNotes();
+      loadUserTags();
     }
   }, [user]);
 
@@ -45,12 +52,17 @@ export default function Profile() {
     setError("");
 
     try {
-      const { data, error } = await notesService.getNotes(user.id);
-
-      if (error) {
-        setError("Failed to load notes: " + error.message);
+      let result;
+      if (selectedTags.length > 0) {
+        result = await notesService.getNotesByTags(user.id, selectedTags);
       } else {
-        setNotes(data || []);
+        result = await notesService.getNotes(user.id);
+      }
+
+      if (result.error) {
+        setError("Failed to load notes: " + result.error.message);
+      } else {
+        setNotes(result.data || []);
       }
     } catch (err) {
       setError("An unexpected error occurred while loading notes");
@@ -59,6 +71,28 @@ export default function Profile() {
       setNotesLoading(false);
     }
   };
+
+  const loadUserTags = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await notesService.getUserTags(user.id);
+      if (error) {
+        console.error("Failed to load tags:", error.message);
+      } else {
+        setAllUserTags(data || []);
+      }
+    } catch (err) {
+      console.error("Load tags error:", err);
+    }
+  };
+
+  // Reload notes when selected tags change
+  useEffect(() => {
+    if (user) {
+      loadNotes();
+    }
+  }, [selectedTags]);
 
   const handleCreateNote = async (e) => {
     e.preventDefault();
@@ -72,9 +106,16 @@ export default function Profile() {
     setError("");
 
     try {
+      // Parse tags from comma-separated string
+      const tagArray = tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+
       const noteData = {
         title: title.trim(),
         content: content.trim(),
+        tags: tagArray.length > 0 ? tagArray : null,
         user_id: user.id,
       };
 
@@ -88,6 +129,9 @@ export default function Profile() {
         // Clear form
         setTitle("");
         setContent("");
+        setTags("");
+        // Reload tags to include new ones
+        loadUserTags();
       }
     } catch (err) {
       setError("An unexpected error occurred while creating note");
@@ -121,6 +165,7 @@ export default function Profile() {
     setEditingNote(note.id);
     setEditTitle(note.title);
     setEditContent(note.content);
+    setEditTags(note.tags ? note.tags.join(", ") : "");
     setError(""); // Clear any existing errors
   };
 
@@ -128,6 +173,7 @@ export default function Profile() {
     setEditingNote(null);
     setEditTitle("");
     setEditContent("");
+    setEditTags("");
     setError("");
   };
 
@@ -141,9 +187,16 @@ export default function Profile() {
     setError("");
 
     try {
+      // Parse tags from comma-separated string
+      const tagArray = editTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
+
       const updates = {
         title: editTitle.trim(),
         content: editContent.trim(),
+        tags: tagArray.length > 0 ? tagArray : null,
       };
 
       const { data, error } = await notesService.updateNote(noteId, updates);
@@ -162,6 +215,8 @@ export default function Profile() {
 
         // Exit edit mode
         handleCancelEdit();
+        // Reload tags to include new ones
+        loadUserTags();
       }
     } catch (err) {
       setError("An unexpected error occurred while updating note");
@@ -253,6 +308,24 @@ export default function Profile() {
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="tags" className="label">
+                Tags (optional)
+              </label>
+              <input
+                id="tags"
+                type="text"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                className="input"
+                placeholder="Enter tags separated by commas (e.g., work, important, ideas)"
+                disabled={submitting}
+              />
+              <small className="help-text">
+                Separate multiple tags with commas
+              </small>
+            </div>
+
             <button
               type="submit"
               className="button"
@@ -263,9 +336,61 @@ export default function Profile() {
           </form>
         </div>
 
+        {/* Filter Bar */}
+        <div className="filter-section">
+          <h3>Filter by Tags</h3>
+          <div className="tags-filter">
+            {allUserTags.length === 0 ? (
+              <p className="no-tags">
+                No tags available. Create notes with tags to see filters!
+              </p>
+            ) : (
+              <>
+                <button
+                  onClick={() => setSelectedTags([])}
+                  className={`tag-filter ${
+                    selectedTags.length === 0 ? "active" : ""
+                  }`}
+                >
+                  All Notes
+                </button>
+                {allUserTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => {
+                      if (selectedTags.includes(tag)) {
+                        setSelectedTags(selectedTags.filter((t) => t !== tag));
+                      } else {
+                        setSelectedTags([...selectedTags, tag]);
+                      }
+                    }}
+                    className={`tag-filter ${
+                      selectedTags.includes(tag) ? "active" : ""
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={() => setSelectedTags([])}
+                    className="clear-filters"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Notes List */}
         <div className="notes-section">
-          <h2>Your Notes ({notes.length})</h2>
+          <h2>
+            {selectedTags.length > 0
+              ? `Notes with tags: ${selectedTags.join(", ")} (${notes.length})`
+              : `Your Notes (${notes.length})`}
+          </h2>
 
           {notesLoading ? (
             <div className="text-center">
@@ -301,6 +426,16 @@ export default function Profile() {
                           placeholder="Note content"
                           disabled={updating}
                           rows={3}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <input
+                          type="text"
+                          value={editTags}
+                          onChange={(e) => setEditTags(e.target.value)}
+                          className="input"
+                          placeholder="Tags (comma-separated)"
+                          disabled={updating}
                         />
                       </div>
                       <div className="edit-actions">
@@ -345,6 +480,18 @@ export default function Profile() {
                         </div>
                       </div>
                       <p className="note-content">{note.content}</p>
+
+                      {/* Tag badges */}
+                      {note.tags && note.tags.length > 0 && (
+                        <div className="note-tags">
+                          {note.tags.map((tag, index) => (
+                            <span key={index} className="tag-badge">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="note-footer">
                         <small>
                           Created:{" "}
