@@ -30,6 +30,11 @@ export default function Profile() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [allUserTags, setAllUserTags] = useState([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(3); // 3 notes per page
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!loading && !user) {
@@ -45,7 +50,7 @@ export default function Profile() {
     }
   }, [user]);
 
-  const loadNotes = async () => {
+  const loadNotes = async (page = currentPage) => {
     if (!user) return;
 
     setNotesLoading(true);
@@ -54,15 +59,21 @@ export default function Profile() {
     try {
       let result;
       if (selectedTags.length > 0) {
-        result = await notesService.getNotesByTags(user.id, selectedTags);
+        result = await notesService.getNotesByTags(
+          user.id,
+          selectedTags,
+          page,
+          pageSize
+        );
       } else {
-        result = await notesService.getNotes(user.id);
+        result = await notesService.getNotes(user.id, page, pageSize);
       }
 
       if (result.error) {
         setError("Failed to load notes: " + result.error.message);
       } else {
         setNotes(result.data || []);
+        setTotalCount(result.count || 0);
       }
     } catch (err) {
       setError("An unexpected error occurred while loading notes");
@@ -87,12 +98,20 @@ export default function Profile() {
     }
   };
 
-  // Reload notes when selected tags change
+  // Reset to page 1 and reload notes when selected tags change
   useEffect(() => {
     if (user) {
-      loadNotes();
+      setCurrentPage(1);
+      loadNotes(1);
     }
   }, [selectedTags]);
+
+  // Reload notes when page changes
+  useEffect(() => {
+    if (user) {
+      loadNotes(currentPage);
+    }
+  }, [currentPage]);
 
   const handleCreateNote = async (e) => {
     e.preventDefault();
@@ -124,12 +143,13 @@ export default function Profile() {
       if (error) {
         setError("Failed to create note: " + error.message);
       } else {
-        // Add the new note to the list
-        setNotes([data[0], ...notes]);
         // Clear form
         setTitle("");
         setContent("");
         setTags("");
+        // Reset to page 1 and reload notes
+        setCurrentPage(1);
+        loadNotes(1);
         // Reload tags to include new ones
         loadUserTags();
       }
@@ -152,8 +172,17 @@ export default function Profile() {
       if (error) {
         setError("Failed to delete note: " + error.message);
       } else {
-        // Remove note from the list
-        setNotes(notes.filter((note) => note.id !== noteId));
+        // Check if this was the last note on current page
+        const remainingNotesOnPage = notes.length - 1;
+        if (remainingNotesOnPage === 0 && currentPage > 1) {
+          // Go to previous page if current page becomes empty
+          setCurrentPage(currentPage - 1);
+        } else {
+          // Reload current page
+          loadNotes(currentPage);
+        }
+        // Reload tags in case deleted note had unique tags
+        loadUserTags();
       }
     } catch (err) {
       setError("An unexpected error occurred while deleting note");
@@ -204,17 +233,10 @@ export default function Profile() {
       if (error) {
         setError("Failed to update note: " + error.message);
       } else {
-        // Update the note in the list
-        setNotes(
-          notes.map((note) =>
-            note.id === noteId
-              ? { ...note, ...updates, updated_at: new Date().toISOString() }
-              : note
-          )
-        );
-
         // Exit edit mode
         handleCancelEdit();
+        // Reload current page to get updated data
+        loadNotes(currentPage);
         // Reload tags to include new ones
         loadUserTags();
       }
@@ -382,8 +404,10 @@ export default function Profile() {
         <div className="notes-section">
           <h2>
             {selectedTags.length > 0
-              ? `Notes with tags: ${selectedTags.join(", ")} (${notes.length})`
-              : `Your Notes (${notes.length})`}
+              ? `Notes with tags: ${selectedTags.join(
+                  ", "
+                )} (${totalCount} total)`
+              : `Your Notes (${totalCount} total)`}
           </h2>
 
           {notesLoading ? (
@@ -504,6 +528,47 @@ export default function Profile() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalCount > pageSize && (
+            <div className="pagination">
+              <div className="pagination-controls">
+                <button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="pagination-btn"
+                >
+                  Previous
+                </button>
+
+                {/* Page Numbers */}
+                <div className="page-numbers">
+                  {Array.from(
+                    { length: Math.ceil(totalCount / pageSize) },
+                    (_, i) => i + 1
+                  ).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`page-number ${
+                        currentPage === pageNum ? "active" : ""
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= Math.ceil(totalCount / pageSize)}
+                  className="pagination-btn"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
