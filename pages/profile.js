@@ -33,7 +33,7 @@ export default function Profile() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [pageSize] = useState(3); // 3 notes per page
+  const [pageSize] = useState(6); // 6 notes per page
 
   // Redirect to home if not authenticated
   useEffect(() => {
