@@ -336,53 +336,47 @@ export default function Profile() {
           </form>
         </div>
 
-        {/* Filter Bar */}
-        <div className="filter-section">
-          <h3>Filter by Tags</h3>
-          <div className="tags-filter">
-            {allUserTags.length === 0 ? (
-              <p className="no-tags">
-                No tags available. Create notes with tags to see filters!
-              </p>
-            ) : (
-              <>
+        {/* Filter Bar - Only show if tags exist */}
+        {allUserTags.length > 0 && (
+          <div className="filter-section">
+            <h3>Filter by Tags</h3>
+            <div className="tags-filter">
+              <button
+                onClick={() => setSelectedTags([])}
+                className={`tag-filter ${
+                  selectedTags.length === 0 ? "active" : ""
+                }`}
+              >
+                All Notes
+              </button>
+              {allUserTags.map((tag) => (
                 <button
-                  onClick={() => setSelectedTags([])}
+                  key={tag}
+                  onClick={() => {
+                    if (selectedTags.includes(tag)) {
+                      setSelectedTags(selectedTags.filter((t) => t !== tag));
+                    } else {
+                      setSelectedTags([...selectedTags, tag]);
+                    }
+                  }}
                   className={`tag-filter ${
-                    selectedTags.length === 0 ? "active" : ""
+                    selectedTags.includes(tag) ? "active" : ""
                   }`}
                 >
-                  All Notes
+                  {tag}
                 </button>
-                {allUserTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      if (selectedTags.includes(tag)) {
-                        setSelectedTags(selectedTags.filter((t) => t !== tag));
-                      } else {
-                        setSelectedTags([...selectedTags, tag]);
-                      }
-                    }}
-                    className={`tag-filter ${
-                      selectedTags.includes(tag) ? "active" : ""
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-                {selectedTags.length > 0 && (
-                  <button
-                    onClick={() => setSelectedTags([])}
-                    className="clear-filters"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </>
-            )}
+              ))}
+              {selectedTags.length > 0 && (
+                <button
+                  onClick={() => setSelectedTags([])}
+                  className="clear-filters"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Notes List */}
         <div className="notes-section">
